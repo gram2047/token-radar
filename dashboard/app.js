@@ -8,6 +8,20 @@
   if (!DATA) return;
   var app = document.getElementById('board');
   var state = { q: '', category: 'all', tab: 'all', sort: 'rank', dir: 1, selected: null };
+  // Deep links: #tab=early, #category=RWA, #q=gauntlet and #detail=<slug> open the same views a
+  // reader reaches by clicking, so a link (or a screenshot) can name one exact view of the board.
+  var deepDetail = null;
+  if (location.hash.length > 1) {
+    location.hash.slice(1).split('&').forEach(function (pair) {
+      var kv = pair.split('=');
+      var key = decodeURIComponent(kv[0] || '');
+      var val = decodeURIComponent(kv.slice(1).join('=') || '');
+      if (key === 'tab' && (val === 'all' || val === 'watchlist' || val === 'early' || val === 'live')) state.tab = val;
+      if (key === 'category' && val) state.category = val;
+      if (key === 'q' && val) state.q = val.toLowerCase();
+      if (key === 'detail' && val) deepDetail = val;
+    });
+  }
 
   var usd0 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
   function fmtUsd(n) {
@@ -248,4 +262,9 @@
   document.body.appendChild(drawer);
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDetail(); });
   refresh();
+  if (deepDetail) {
+    for (var i = 0; i < DATA.rows.length; i++) {
+      if (DATA.rows[i].slug === deepDetail) { openDetail(DATA.rows[i]); break; }
+    }
+  }
 })();
