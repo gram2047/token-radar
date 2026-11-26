@@ -118,7 +118,7 @@ export interface BoardRow {
   farm_steps: string[];
 }
 
-/** The dashboard's compact view of one row, with farm plans generated in the page. */
+/** The dashboard's view of one row: the board row's figures plus its farm plan, from the same source. */
 export interface RadarRow {
   rank: number;
   slug: string;
@@ -135,6 +135,8 @@ export interface RadarRow {
   peer_count: number;
   growth_multiplier: number;
   maturity_multiplier: number;
+  watchlist: boolean;
+  farm_steps: string[];
 }
 
 /** A live-token protocol: it already trades, so the board shows the market's own value, not a model's. */
@@ -148,6 +150,14 @@ export interface LiveRow {
   change_7d: number | null;
 }
 
+/** One category's calibration as the dashboard's model panel states it. */
+export interface CategoryCalibrationView {
+  category: string;
+  peers: number;
+  median: number;
+  multiple: number;
+}
+
 /** Everything the dashboard needs: the board, the live set, and the model it runs. */
 export interface RadarData {
   as_of: string;
@@ -159,6 +169,11 @@ export interface RadarData {
   board_size: number;
   early_size: number;
   live_size: number;
+  calibration: {
+    global_median: number;
+    live_peers: number;
+    categories: CategoryCalibrationView[];
+  };
   rows: RadarRow[];
   live: LiveRow[];
 }
@@ -482,8 +497,8 @@ export function liveRows(snapshot: Snapshot): LiveRow[] {
     }));
 }
 
-/** A board row's compact form for data.js, with the farm plan generated in the page. */
-export function radarRow(row: BoardRow): RadarRow {
+/** A board row's form for data.js: the same figures and the same farm plan board.json carries. */
+export function radarRow(row: BoardRow, watchlist: Set<string>): RadarRow {
   return {
     rank: row.rank,
     slug: row.slug,
@@ -500,6 +515,8 @@ export function radarRow(row: BoardRow): RadarRow {
     peer_count: row.model.peer_count,
     growth_multiplier: row.model.growth_multiplier,
     maturity_multiplier: row.model.maturity_multiplier,
+    watchlist: watchlist.has(row.slug),
+    farm_steps: row.farm_steps,
   };
 }
 
@@ -507,7 +524,12 @@ export function radarRow(row: BoardRow): RadarRow {
 export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): { board: BoardRow[]; radar: RadarData } {
   const board = buildBoard(snapshot, model);
   const live = liveRows(snapshot);
-  const early = board.filter((r) => !snapshot.watchlist.includes(r.slug)).length;
+  const watchlist = new Set(snapshot.watchlist);
+  const early = board.filter((r) => !watchlist.has(r.slug)).length;
+  const calibration = calibrateMultiples(snapshot, model);
+  const categories: CategoryCalibrationView[] = [...calibration.by_category.entries()]
+    .map(([category, v]) => ({ category: category === '' ? '(uncategorised)' : category, peers: v.peers, median: round4(v.median), multiple: round4(v.multiple) }))
+    .sort((a, b) => b.peers - a.peers || (a.category < b.category ? -1 : 1));
   const radar: RadarData = {
     as_of: snapshot.as_of,
     source: snapshot.source,
@@ -518,7 +540,8 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
     board_size: board.length,
     early_size: early,
     live_size: live.length,
-    rows: board.map(radarRow),
+    calibration: { global_median: round4(calibration.global_median), live_peers: calibration.live_peers, categories },
+    rows: board.map((r) => radarRow(r, watchlist)),
     live,
   };
   return { board, radar };
