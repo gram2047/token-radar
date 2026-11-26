@@ -270,7 +270,11 @@ export function impliedValue(protocol: SnapshotProtocol, asOf: string, model: Mo
   const growthMult = 1 + (growthPct / 100) * model.growth_weight;
   const ageForModel = age ?? model.unknown_age_days;
   const maturityMult = model.maturity_floor + (Math.min(Math.max(ageForModel, 0), model.maturity_days) / model.maturity_days) * model.maturity_range;
-  const { multiple, peers } = multipleFor(calibration, protocol, model);
+  const raw = multipleFor(calibration, protocol, model);
+  // Score with the multiple at the precision the board publishes (4 decimals), so the dashboard's own
+  // recomputation from the published figures reproduces the board's implied value to the dollar.
+  const multiple = Math.round(raw.multiple * 1e4) / 1e4;
+  const peers = raw.peers;
   const base = protocol.tvl_usd * multiple;
   const implied = Math.max(1, Math.round(base * growthMult * maturityMult));
   return { implied, growthPct, growthMult, maturityMult, age, multiple, peers };

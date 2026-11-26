@@ -221,9 +221,12 @@
     state.selected = r.slug;
     var recomputed = impliedOf(r, DATA.model);
     var kv = function (pairs) {
-      return el('dl', { 'class': 'kv' }, pairs.map(function (p) {
-        return [el('dt', { text: p[0] }), el('dd', { text: p[1] })];
-      }));
+      var dl = el('dl', { 'class': 'kv' });
+      pairs.forEach(function (p) {
+        dl.appendChild(el('dt', { text: p[0] }));
+        dl.appendChild(el('dd', { text: p[1] }));
+      });
+      return dl;
     };
     var sheet = el('div', { 'class': 'sheet' },
       el('button', { 'class': 'close', text: 'Close', onclick: closeDetail }),
